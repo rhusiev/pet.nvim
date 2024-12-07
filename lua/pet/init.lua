@@ -102,6 +102,12 @@ M.add_pet = function(step_period, wait_pediod, pet_string, repeats, attached_to_
 		wait_pediod,
 		step_period,
 		vim.schedule_wrap(function()
+            if not vim.api.nvim_win_is_valid(pet) then
+                timer:close()
+                vim.api.nvim_buf_delete(buf, { force = true })
+                n_pets = n_pets - 1
+                return
+            end
 			local config = vim.api.nvim_win_get_config(pet)
             if math.random(100) <= 5 then
                 moving = not moving
