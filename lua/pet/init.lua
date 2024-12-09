@@ -103,6 +103,9 @@ M.add_pet = function(step_period, wait_pediod, pet_string, repeats, attached_to_
 		step_period,
 		vim.schedule_wrap(function()
             if not vim.api.nvim_win_is_valid(pet) then
+                if timer:is_closing() then
+                    return
+                end
                 timer:close()
                 vim.api.nvim_buf_delete(buf, { force = true })
                 n_pets = n_pets - 1
