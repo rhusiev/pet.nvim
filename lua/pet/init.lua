@@ -10,24 +10,24 @@ M._choose_new_spot = function(pet_length)
 	return x, y
 end
 
-M._choose_next_spot = function(config, moving)
+M._choose_next_spot = function(config, moving, attached_to_win_config)
 	local x, y = config["col"], config["row"]
-    if moving then
-        local direction = math.random(4)
+	if moving then
+		local direction = math.random(4)
 
-        if direction == 1 then
-            x = x - 1
-        elseif direction == 2 then
-            y = y - 1
-        elseif direction == 3 then
-            x = x + 1
-        elseif direction == 4 then
-            y = y + 1
-        end
-    end
+		if direction == 1 then
+			x = x - 1
+		elseif direction == 2 then
+			y = y - 1
+		elseif direction == 3 then
+			x = x + 1
+		elseif direction == 4 then
+			y = y + 1
+		end
+	end
 
 	-- local cursor_y = vim.api.nvim_win_get_cursor(0)[1]
-    -- vim.notify(vim.inspect(vim.api.nvim_win_get_position(vim.api.nvim_get_current_win())))
+	-- vim.notify(vim.inspect(vim.api.nvim_win_get_position(vim.api.nvim_get_current_win())))
 	-- if conf.radius_around_cursor then
 	-- 	for i = 0, conf.radius_around_cursor do
 	-- 		if y == cursor_y + conf.n_skip_above - i then
@@ -48,14 +48,14 @@ M._choose_next_spot = function(config, moving)
 	-- end
 
 	if x < conf.n_skip_left then
-		x = vim.o.columns - conf.n_skip_right
-	elseif x > vim.o.columns - conf.n_skip_right then
+		x = attached_to_win_config.width - conf.n_skip_right
+	elseif x > attached_to_win_config.width - conf.n_skip_right then
 		x = conf.n_skip_left
 	end
 
 	if y < conf.n_skip_above then
-		y = vim.o.lines - conf.n_skip_below
-	elseif y > vim.o.lines - conf.n_skip_below then
+		y = attached_to_win_config.height - conf.n_skip_below
+	elseif y > attached_to_win_config.height - conf.n_skip_below then
 		y = conf.n_skip_above
 	end
 
@@ -66,7 +66,7 @@ M._choose_next_spot = function(config, moving)
 end
 
 M.add_pet = function(step_period, wait_pediod, pet_string, repeats, attached_to_party)
-    n_pets = n_pets + 1
+	n_pets = n_pets + 1
 	if not step_period then
 		step_period = 150
 	end
@@ -76,16 +76,18 @@ M.add_pet = function(step_period, wait_pediod, pet_string, repeats, attached_to_
 	if not pet_string then
 		pet_string = "🐧"
 	end
-    if not repeats then
-        repeats = 100
-    end
+	if not repeats then
+		repeats = 100
+	end
 	local pet_length = #pet_string
+
+	local attached_to_win = vim.api.nvim_get_current_win()
 
 	local buf = vim.api.nvim_create_buf(false, true)
 	vim.api.nvim_buf_set_lines(buf, 0, 1, true, { pet_string })
 	local x, y = M._choose_new_spot(pet_length)
 	local pet = vim.api.nvim_open_win(buf, false, {
-		relative = "editor",
+		relative = "win",
 		style = "minimal",
 		row = y,
 		col = x,
@@ -96,31 +98,32 @@ M.add_pet = function(step_period, wait_pediod, pet_string, repeats, attached_to_
 	local timer = vim.uv.new_timer()
 	local i = 1
 
-    local moving = true
+	local moving = true
 
 	timer:start(
 		wait_pediod,
 		step_period,
 		vim.schedule_wrap(function()
-            if not vim.api.nvim_win_is_valid(pet) then
-                if timer:is_closing() then
-                    return
-                end
-                timer:close()
-                vim.api.nvim_buf_delete(buf, { force = true })
-                n_pets = n_pets - 1
-                return
-            end
+			if not vim.api.nvim_win_is_valid(pet) or not vim.api.nvim_win_is_valid(attached_to_win) then
+				if timer:is_closing() then
+					return
+				end
+				timer:close()
+				vim.api.nvim_buf_delete(buf, { force = true })
+				n_pets = n_pets - 1
+				return
+			end
 			local config = vim.api.nvim_win_get_config(pet)
-            if math.random(100) <= 5 then
-                moving = not moving
-            end
-			M._choose_next_spot(config, moving)
+			if math.random(100) <= 5 then
+				moving = not moving
+			end
+			local attached_to_win_config = vim.api.nvim_win_get_config(attached_to_win)
+			M._choose_next_spot(config, moving, attached_to_win_config)
 			vim.api.nvim_win_set_config(pet, config)
 			if i == repeats or attached_to_party and not do_party then
 				timer:close()
 				vim.api.nvim_buf_delete(buf, { force = true })
-                n_pets = n_pets - 1
+				n_pets = n_pets - 1
 			end
 			i = i + 1
 		end)
@@ -128,30 +131,34 @@ M.add_pet = function(step_period, wait_pediod, pet_string, repeats, attached_to_
 end
 
 M.start_pet_party = function(max_pets, spawn_period, step_period, wait_pediod, pet_string, repeats)
-    if not max_pets then
-        max_pets = 4
-    end
-    if not spawn_period then
-        spawn_period = 2000
-    end
-    local spawner = vim.uv.new_timer()
-    if do_party then
-        vim.notify("Penguin party is already happening! Can't start another one.", vim.log.levels.WARN)
-        return
-    end
-    do_party = true
-    spawner:start(500, spawn_period, vim.schedule_wrap(function()
-        if n_pets < max_pets then
-            M.add_pet(step_period, wait_pediod, pet_string, repeats, true)
-        end
-        if not do_party then
-            spawner:close()
-        end
-    end))
+	if not max_pets then
+		max_pets = 4
+	end
+	if not spawn_period then
+		spawn_period = 2000
+	end
+	local spawner = vim.uv.new_timer()
+	if do_party then
+		vim.notify("Penguin party is already happening! Can't start another one.", vim.log.levels.WARN)
+		return
+	end
+	do_party = true
+	spawner:start(
+		500,
+		spawn_period,
+		vim.schedule_wrap(function()
+			if n_pets < max_pets then
+				M.add_pet(step_period, wait_pediod, pet_string, repeats, true)
+			end
+			if not do_party then
+				spawner:close()
+			end
+		end)
+	)
 end
 
 M.stop_pet_party = function()
-    do_party = false
+	do_party = false
 end
 
 return M
