@@ -117,6 +117,9 @@ M.add_pet = function(conf, attached_to_party)
 	if not conf.min_skip_left then
 		conf.min_skip_left = 0
 	end
+    if not conf.switch_movement_probability then
+        conf.switch_movement_probability = 3
+    end
 
 	local attached_to_win = vim.api.nvim_get_current_win()
 
@@ -157,7 +160,7 @@ M.add_pet = function(conf, attached_to_party)
 				n_pets = n_pets - 1
 				return
 			end
-			if math.random(100) <= 5 then
+			if math.random(100) <= conf.switch_movement_probability then
 				moving = not moving
 			end
 			config, no_err = choose_next_spot(conf, pet, moving, attached_to_win)
