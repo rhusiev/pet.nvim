@@ -108,6 +108,8 @@ require("pet").start_pet_party({
 })
 ```
 
+The same config can be passed to `require("pet").add_pet()`, with the exception of `max_pets` and `spawn_period`, which will be ignored.
+
 ## Inspiration
 
 The original idea comes from [duck.nvim](https://github.com/tamton-aquib/duck.nvim)
