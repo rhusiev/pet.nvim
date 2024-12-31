@@ -7,8 +7,8 @@ Bring a *pet party* to your mundane text editing - release the pets to **waddle*
 - [Features](#features)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
-- [Options](#options)
 - [API](#api)
+- [Options](#options)
 - [Inspiration](#inspiration)
 
 ## Features
