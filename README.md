@@ -87,6 +87,7 @@ You can add configuration when starting a party or adding a pet. Here are the de
 require("pet").start_pet_party({
     -- The maximum number of pets simultaneously in the party
     max_pets = 4,
+
     -- The period in milliseconds at which a pet is spawned
     -- (if there still is some room in the party)
     spawn_period = 2000,
@@ -94,10 +95,19 @@ require("pet").start_pet_party({
     step_period = 150,
     -- The time in milliseconds before the first pet appears
     wait_period = 1000,
+
     -- The string to use as a pet
     pet_string = "🐧",
+    -- How many characters does a string visually occupy
+    -- If not present, defaults to the length lua provides, which is the length in bytes, so is not always accurate
+    pet_string_length = #"🐧",
+
     -- The number of moves a pet does before disappearing
     repeats = 100,
+    -- The probability (in %) of a pet stopping its movement
+    stop_moving_probability = 3,
+    -- The probability (in %) of a pet starting its movement, if it is stopped
+    start_moving_probability = 10,
 
     -- The minimum number of spaces at the window edges,
     -- around which a pet can not move
