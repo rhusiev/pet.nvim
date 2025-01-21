@@ -1,5 +1,4 @@
 ---@alias Wininfo vim.fn.getwininfo.ret.item
----@alias Pet integer
 
 ---@class PetConfig
 ---@field step_period integer The period in milliseconds at which a pet will move. Defaults to 150.

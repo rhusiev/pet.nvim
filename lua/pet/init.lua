@@ -3,147 +3,71 @@ local n_pets = 0
 local do_party = false
 
 require("pet.types")
+local utils = require("pet.utils")
+
+---@class Pet
+---@field win integer
+---@field attached_to_win integer
+---@field moving boolean
+---@field config PetConfig
+---@field state any
+---
+---@field move fun(self: Pet)
 
 ---Choose a new random spot for a pet
----@param conf table
----@param attached_to_win integer
+---@param self Pet
 ---@return number, number
-local function choose_new_spot(conf, attached_to_win)
-	local attached_to_wininfo = vim.fn.getwininfo(attached_to_win)[1]
+local function choose_new_spot(self)
+	local attached_to_wininfo = vim.fn.getwininfo(self.attached_to_win)[1]
 	local x, y =
-		math.random(attached_to_wininfo.wincol + attached_to_wininfo.width - conf.pet_length),
-		math.random(attached_to_wininfo.height - 1 - conf.min_skip_below)
+		math.random(attached_to_wininfo.wincol + attached_to_wininfo.width - self.config.pet_length),
+		math.random(attached_to_wininfo.height - 1 - self.config.min_skip_below)
 
 	return x, y
 end
 
----Convert x relative to a window to absolute (relative to the whole editor)
----@param x number
----@param attached_to_wininfo Wininfo
----@return number
-local function to_absolute_x(x, attached_to_wininfo)
-	return x + attached_to_wininfo.wincol
-end
-
----Convert x absolute (relative to the whole editor) to relative to a window
----@param x number
----@param attached_to_wininfo Wininfo
----@return number
-local function to_relative_x(x, attached_to_wininfo)
-	return x - attached_to_wininfo.wincol
-end
-
----Convert y relative to a window to absolute (relative to the whole editor)
----@param y number
----@param attached_to_wininfo Wininfo
----@return number
-local function to_absolute_y(y, attached_to_wininfo)
-	return y + attached_to_wininfo.winrow
-end
-
----Convert y absolute (relative to the whole editor) to relative to a window
----@param y number
----@param attached_to_wininfo Wininfo
----@return number
-local function to_relative_y(y, attached_to_wininfo)
-	return y - attached_to_wininfo.winrow
-end
-
----Convert x and y relative to a window to absolute (relative to the whole editor)
----@param x number
----@param y number
----@param attached_to_wininfo Wininfo
----@return number, number
-local function to_absolute(x, y, attached_to_wininfo)
-	return to_absolute_x(x, attached_to_wininfo), to_absolute_y(y, attached_to_wininfo)
-end
-
----Convert x and y absolute (relative to the whole editor) to relative to a window
----@param x number
----@param y number
----@param attached_to_wininfo Wininfo
----@return number, number
-local function to_relative(x, y, attached_to_wininfo)
-	return to_relative_x(x, attached_to_wininfo), to_relative_y(y, attached_to_wininfo)
-end
-
----Draw a character at x,y position
----@param x number
----@param y number
----@param char string
----@param time number the period of time to keep the mark shown
----@param attached_to_wininfo Wininfo? the window, relative to which
--- draw the mark. If nil, the mark is drawn relative to the whole editor
-local function draw_mark(x, y, char, time, attached_to_wininfo)
-	local abs_x, abs_y = x, y
-	if attached_to_wininfo ~= nil then
-		abs_x, abs_y = to_absolute(x, y, attached_to_wininfo)
-	end
-	local buf = vim.api.nvim_create_buf(false, true)
-	local new_win = vim.api.nvim_open_win(buf, false, {
-		relative = "editor",
-		style = "minimal",
-		row = abs_y - 1,
-		col = abs_x - 1,
-		width = 1,
-		height = 1,
-	})
-	vim.api.nvim_buf_set_lines(buf, 0, 1, true, { char })
-	local timer = vim.uv.new_timer()
-	timer:start(
-		time,
-		0,
-		vim.schedule_wrap(function()
-			vim.api.nvim_win_close(new_win, true)
-			timer:close()
-		end)
-	)
-end
-
 ---Choose, where to move for a pet
----@param conf PetConfig
----@param pet Pet
----@param moving boolean
----@param attached_to_win integer
+---@param self Pet
 ---@return vim.api.keyset.win_config, boolean
-local function choose_next_spot(conf, pet, moving, attached_to_win)
-	local config = vim.api.nvim_win_get_config(pet)
-	local attached_to_wininfo = vim.fn.getwininfo(attached_to_win)[1]
+local function choose_next_spot(self)
+	local config = vim.api.nvim_win_get_config(self.win)
+	local attached_to_wininfo = vim.fn.getwininfo(self.attached_to_win)[1]
 	local x, y = config["col"], config["row"]
 	if x == nil or y == nil then
 		return config, false
 	end
-	local abs_x, abs_y = to_absolute(x, y, attached_to_wininfo)
+	local abs_x, abs_y = utils.to_absolute(x, y, attached_to_wininfo)
 
 	local lengths = {}
-	if conf.debug_marks then
-		draw_mark(x, y, "$", conf.step_period / 2, attached_to_wininfo)
+	if self.config.debug_marks then
+		utils.draw_mark(x, y, "$", self.config.step_period / 2, attached_to_wininfo)
 	end
 	for row = attached_to_wininfo.winrow, attached_to_wininfo.winrow + attached_to_wininfo.height - 1 do
 		local length = attached_to_wininfo.textoff
-		for c = attached_to_wininfo.wincol + attached_to_wininfo.width - conf.pet_length, attached_to_wininfo.wincol + attached_to_wininfo.textoff, -1 do
+		for c = attached_to_wininfo.wincol + attached_to_wininfo.width - self.config.pet_length, attached_to_wininfo.wincol + attached_to_wininfo.textoff, -1 do
 			if
-				vim.fn.screenchar(row, c) ~= 32 and not (c < abs_x + conf.pet_length and c >= abs_x and row == abs_y)
+				vim.fn.screenchar(row, c) ~= 32
+				and not (c < abs_x + self.config.pet_length and c >= abs_x and row == abs_y)
 			then
 				length = c
-				if conf.debug_marks then
-					draw_mark(c, row, "#", conf.step_period / 1.05)
+				if self.config.debug_marks then
+					utils.draw_mark(c, row, "#", self.config.step_period / 1.05)
 				end
 				break
-			elseif conf.debug_marks and c <= attached_to_wininfo.textoff then
-				draw_mark(c, row, "@", conf.step_period / 1.1)
+			elseif self.config.debug_marks and c <= attached_to_wininfo.textoff then
+				utils.draw_mark(c, row, "@", self.config.step_period / 1.1)
 			elseif c <= 5 then
 				vim.print(attached_to_wininfo.textoff)
 			end
 		end
-		local rel_c, rel_row = to_relative(length, row, attached_to_wininfo)
+		local rel_c, rel_row = utils.to_relative(length, row, attached_to_wininfo)
 		lengths[rel_row] = rel_c
 	end
 
-	local win_rowend = attached_to_wininfo.height - 1 - conf.min_skip_below
-	local win_rowstart = conf.min_skip_above
-	local win_colend = attached_to_wininfo.width - conf.pet_length - conf.min_skip_right
-	local win_colstart = conf.min_skip_left
+	local win_rowend = attached_to_wininfo.height - 1 - self.config.min_skip_below
+	local win_rowstart = self.config.min_skip_above
+	local win_colend = attached_to_wininfo.width - self.config.pet_length - self.config.min_skip_right
+	local win_colstart = self.config.min_skip_left
 	if attached_to_wininfo.textoff > win_colstart then
 		win_colstart = attached_to_wininfo.textoff
 	end
@@ -152,7 +76,7 @@ local function choose_next_spot(conf, pet, moving, attached_to_win)
 	local tries = 0
 	while true do
 		local next_direction = direction
-		if moving then
+		if self.moving then
 			if math.random(100) <= 10 then
 				next_direction = direction + (math.random(2) - 1) * 2 - 1
 			end
@@ -179,9 +103,11 @@ local function choose_next_spot(conf, pet, moving, attached_to_win)
 		if lengths[y] ~= nil and lengths[y] < x then
 			break
 		end
-		if not moving then
-			x, y = choose_new_spot(conf, attached_to_win)
-			local result = choose_next_spot(conf, pet, true, attached_to_win)
+		if not self.moving then
+			x, y = choose_new_spot(self)
+			self.moving = true
+			local result = choose_next_spot(self)
+			self.moving = false
 			if not result[0] then
 				return config, false
 			end
@@ -191,9 +117,9 @@ local function choose_next_spot(conf, pet, moving, attached_to_win)
 		if tries > 30 then
 			return config, false
 		end
-		if conf.debug_marks then
-			draw_mark(lengths[y], y, "#", conf.step_period / 1.05, attached_to_wininfo)
-			draw_mark(x, y, "$", conf.step_period / 1.5, attached_to_wininfo)
+		if self.config.debug_marks then
+			utils.draw_mark(lengths[y], y, "#", self.config.step_period / 1.05, attached_to_wininfo)
+			utils.draw_mark(x, y, "$", self.config.step_period / 1.5, attached_to_wininfo)
 		end
 	end
 
@@ -251,8 +177,15 @@ M.add_pet = function(conf, attached_to_party)
 	local attached_to_win = vim.api.nvim_get_current_win()
 
 	local buf = vim.api.nvim_create_buf(false, true)
-	local x, y = choose_new_spot(conf, attached_to_win)
-	local pet = vim.api.nvim_open_win(buf, false, {
+	local pet = {
+		win = nil,
+		attached_to_win = attached_to_win,
+		moving = true,
+		config = conf,
+		state = {},
+	}
+	local x, y = choose_new_spot(pet)
+	pet.win = vim.api.nvim_open_win(buf, false, {
 		relative = "win",
 		style = "minimal",
 		row = y,
@@ -260,13 +193,13 @@ M.add_pet = function(conf, attached_to_party)
 		width = 2,
 		height = 1,
 	})
-	local config, no_err = choose_next_spot(conf, pet, true, attached_to_win)
+	local config, no_err = choose_next_spot(pet)
 	if not no_err then
 		vim.api.nvim_buf_delete(buf, { force = true })
 		n_pets = n_pets - 1
 		return
 	end
-	vim.api.nvim_win_set_config(pet, config)
+	vim.api.nvim_win_set_config(pet.win, config)
 	vim.api.nvim_buf_set_lines(buf, 0, 1, true, { conf.pet_string })
 
 	local timer = vim.uv.new_timer()
@@ -278,7 +211,7 @@ M.add_pet = function(conf, attached_to_party)
 		conf.wait_period,
 		conf.step_period,
 		vim.schedule_wrap(function()
-			if not vim.api.nvim_win_is_valid(pet) or not vim.api.nvim_win_is_valid(attached_to_win) then
+			if not vim.api.nvim_win_is_valid(pet.win) or not vim.api.nvim_win_is_valid(attached_to_win) then
 				if timer:is_closing() then
 					return
 				end
@@ -292,7 +225,7 @@ M.add_pet = function(conf, attached_to_party)
 			elseif not moving and math.random(100) <= conf.start_moving_probability then
 				moving = true
 			end
-			config, no_err = choose_next_spot(conf, pet, moving, attached_to_win)
+			config, no_err = choose_next_spot(pet)
 			if not no_err then
 				if timer:is_closing() then
 					return
@@ -302,7 +235,7 @@ M.add_pet = function(conf, attached_to_party)
 				n_pets = n_pets - 1
 				return
 			end
-			vim.api.nvim_win_set_config(pet, config)
+			vim.api.nvim_win_set_config(pet.win, config)
 			if i == conf.repeats or attached_to_party and not do_party then
 				timer:close()
 				vim.api.nvim_buf_delete(buf, { force = true })
