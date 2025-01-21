@@ -1,0 +1,25 @@
+---@alias Wininfo vim.fn.getwininfo.ret.item
+---@alias Pet integer
+
+---@class PetConfig
+---@field step_period integer The period in milliseconds at which a pet will move. Defaults to 150.
+---@field wait_period integer The time in milliseconds before the first pet appears. Defaults to 1000.
+---
+---@field pet_string string The string to use as a pet. Defaults to "🐧".
+---@field pet_length integer How many characters does a string visually occupy If not present, defaults to the length lua provides, which is the length in bytes, so is not always accurate. By default initializes to the length of "🐧".
+---@field repeats integer The number of moves a pet does before disappearing. Defaults to 100.
+---
+---@field stop_moving_probability integer The probability (in %) of a pet stopping its movement. Defaults to 3.
+---@field start_moving_probability integer The probability (in %) of a pet starting its movement, if it is stopped. Defaults to 10.
+---
+---@field min_skip_left integer The minimum number of spaces at the left window edge before a pet wraps to the right. Defaults to 0.
+---@field min_skip_right integer The minimum number of spaces at the right window edge before a pet wraps to the left. Defaults to 0.
+---@field min_skip_above integer The minimum number of lines at the top window edge before a pet wraps to the bottom. Defaults to 0.
+---@field min_skip_below integer The minimum number of lines at the bottom window edge before a pet wraps to the top. Defaults to 0.
+---
+---@field debug_marks boolean If true, marks are drawn at the start and end of each step. Defaults to false.
+
+---@class PartyConfig: PetConfig
+---@field max_pets integer The maximum number of pets simultaneously in the party. Defaults to 4.
+---
+---@field spawn_period integer The period in milliseconds at which a pet is spawned (if there still is some room in the party). Defaults to 2000.

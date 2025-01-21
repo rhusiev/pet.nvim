@@ -100,7 +100,7 @@ require("pet").start_pet_party({
     pet_string = "🐧",
     -- How many characters does a string visually occupy
     -- If not present, defaults to the length lua provides, which is the length in bytes, so is not always accurate
-    pet_string_length = #"🐧",
+    pet_length = #"🐧",
 
     -- The number of moves a pet does before disappearing
     repeats = 100,
