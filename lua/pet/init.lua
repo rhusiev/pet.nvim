@@ -4,6 +4,7 @@ local do_party = false
 
 require("pet.types")
 local utils = require("pet.utils")
+local defaults = require("pet.defaults")
 
 ---@class Pet
 ---@field win integer
@@ -11,7 +12,7 @@ local utils = require("pet.utils")
 ---@field config PetConfig
 ---@field state any
 ---
----@field move fun(self: Pet)
+---@field move fun(pet: Pet, x: number, y: number): number, number
 
 ---Choose a new random spot for a pet
 ---@param self Pet
@@ -22,42 +23,6 @@ local function choose_new_spot(self)
         math.random(attached_to_wininfo.wincol + attached_to_wininfo.width - self.config.pet_length),
         math.random(attached_to_wininfo.height - 1 - self.config.min_skip_below)
 
-    return x, y
-end
-
----Choose the next spot for a pet
----@param self Pet
----@param x number
----@param y number
----@return number, number
-local function default_moving(self, x, y)
-    if self.state.moving == nil then
-        self.state.moving = true
-    end
-    if self.state.direction == nil then
-        self.state.direction = math.random(4)
-    end
-    if math.random(100) <= 30 then
-        self.state.direction = self.state.direction + (math.random(2) - 1) * 2 - 1
-    end
-    if not self.state.moving and math.random(100) <= 20 then
-        self.state.moving = true
-    end
-    if self.state.moving and math.random(100) <= 3 then
-        self.state.moving = false
-    end
-    if not self.state.moving then
-        return x, y
-    end
-    if self.state.direction == 1 then
-        x = x - 1
-    elseif self.state.direction == 2 then
-        y = y - 1
-    elseif self.state.direction == 3 then
-        x = x + 1
-    elseif self.state.direction == 4 then
-        y = y + 1
-    end
     return x, y
 end
 
@@ -116,7 +81,7 @@ local function choose_next_spot(self, lengths)
 
     local tries = 0
     while true do
-        x, y = default_moving(self, x, y)
+        x, y = self.move(self, x, y)
         if y < win_rowstart then
             y = win_rowend
         elseif y >= win_rowend then
@@ -156,46 +121,40 @@ M.add_pet = function(conf, attached_to_party)
         conf = {}
     end
     if conf.step_period == nil then
-        conf.step_period = 150
+        conf.step_period = defaults.step_period
     end
     if conf.wait_period == nil then
-        conf.wait_period = 1000
+        conf.wait_period = defaults.wait_period
     end
     if conf.pet_string == nil then
-        conf.pet_string = "🐧"
+        conf.pet_string = defaults.pet_string
     end
     if conf.pet_length == nil then
-        conf.pet_length = string.len(conf.pet_string)
+        conf.pet_length = defaults.pet_length(conf.pet_string)
     end
     if conf.repeats == nil then
-        conf.repeats = 100
+        conf.repeats = defaults.repeats
     end
     if conf.min_skip_above == nil then
-        conf.min_skip_above = 0
+        conf.min_skip_above = defaults.min_skip_above
     end
     if conf.min_skip_below == nil then
-        conf.min_skip_below = 0
+        conf.min_skip_below = defaults.min_skip_below
     end
     if conf.min_skip_right == nil then
-        conf.min_skip_right = 0
+        conf.min_skip_right = defaults.min_skip_right
     end
     if conf.min_skip_left == nil then
-        conf.min_skip_left = 0
-    end
-    if conf.stop_moving_probability == nil then
-        conf.stop_moving_probability = 3
-    end
-    if conf.start_moving_probability == nil then
-        conf.start_moving_probability = 10
+        conf.min_skip_left = defaults.min_skip_left
     end
     if conf.debug_marks == nil then
-        conf.debug_marks = false
+        conf.debug_marks = defaults.debug_marks
     end
     if conf.avoid_text == nil then
-        conf.avoid_text = true
+        conf.avoid_text = defaults.avoid_text
     end
     if conf.moving_function == nil then
-        conf.moving_function = default_moving
+        conf.moving_function = defaults.moving_function
     end
 
     local attached_to_win = vim.api.nvim_get_current_win()
@@ -205,7 +164,8 @@ M.add_pet = function(conf, attached_to_party)
         win = nil,
         attached_to_win = attached_to_win,
         config = conf,
-        state = {},
+        state = nil,
+        move = conf.moving_function,
     }
     local x, y = choose_new_spot(pet)
     pet.win = vim.api.nvim_open_win(buf, false, {
@@ -271,10 +231,10 @@ M.start_pet_party = function(conf)
         conf = {}
     end
     if not conf.max_pets then
-        conf.max_pets = 4
+        conf.max_pets = defaults.max_pets
     end
     if not conf.spawn_period then
-        conf.spawn_period = 2000
+        conf.spawn_period = defaults.spawn_period
     end
     local spawner = vim.uv.new_timer()
     if do_party then

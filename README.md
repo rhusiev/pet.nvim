@@ -104,10 +104,6 @@ require("pet").start_pet_party({
 
     -- The number of moves a pet does before disappearing
     repeats = 100,
-    -- The probability (in %) of a pet stopping its movement
-    stop_moving_probability = 3,
-    -- The probability (in %) of a pet starting its movement, if it is stopped
-    start_moving_probability = 10,
 
     -- The minimum number of spaces at the window edges,
     -- around which a pet can not move
@@ -115,10 +111,42 @@ require("pet").start_pet_party({
     min_skip_right = 0,
     min_skip_above = 0,
     min_skip_below = 0,
+
+    -- Whether to avoid moving over text
+    avoid_text = true,
+    -- A function that takes a pet and its coordinates and outputs new coordinates. By default it moves in the same direction as previously and with some probability changes its direction. Additionally, with some probability a pet might stop moving.
+    move_function = default_moving_function,
 })
 ```
 
+You can also find all the default values at `lua/pet/defaults.lua`.
+
 The same config can be passed to `require("pet").add_pet()`, with the exception of `max_pets` and `spawn_period`, which will be ignored.
+
+## Move function
+
+The default move function moves in the same direction as previously and with some probability changes its direction. Additionally, with some probability a pet might stop moving.
+
+You can write your own function. It should take a pet as the first argument, `x` as a second one and `y` as the third one. `x` and `y` are relative to the window. You can use `pet.state` as a table with a state that will be preserved till the next invocation of the function. However, as there is no state during the first invocation, a recommended practice is to check `if pet.state == nil` at the beginning of the function and state the default state there. For example, the default implementation uses:
+
+```lua
+if pet.state == nil then
+    pet.state = {
+        moving = true,
+        direction = math.random(4),
+    }
+end
+```
+
+to set the starting direction of movement and the variable `moving` to `true`, which represents whether the pet is moving at the moment.
+
+You can find more about the `pet` table at the [API](#API) section.
+
+The default implementation of the function can be found at `lua/pet/defaults.lua`, as well as other default values.
+
+There are also some helper functions, notably to translate between relative (to the window) and absoulte (relative to the whole editor) coordinates. You can find them at `lua/pet/utils.lua` or at the [API](#API) section.
+
+## API
 
 ## Inspiration
 
