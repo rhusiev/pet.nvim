@@ -8,13 +8,13 @@
 ---@field pet_length integer How many characters does a string visually occupy If not present, defaults to the length lua provides, which is the length in bytes, so is not always accurate. By default initializes to the length of "🐧".
 ---@field repeats integer The number of moves a pet does before disappearing. Defaults to 100.
 ---
----@field stop_moving_probability integer The probability (in %) of a pet stopping its movement. Defaults to 3.
----@field start_moving_probability integer The probability (in %) of a pet starting its movement, if it is stopped. Defaults to 10.
----
 ---@field min_skip_left integer The minimum number of spaces at the left window edge before a pet wraps to the right. Defaults to 0.
 ---@field min_skip_right integer The minimum number of spaces at the right window edge before a pet wraps to the left. Defaults to 0.
 ---@field min_skip_above integer The minimum number of lines at the top window edge before a pet wraps to the bottom. Defaults to 0.
 ---@field min_skip_below integer The minimum number of lines at the bottom window edge before a pet wraps to the top. Defaults to 0.
+---
+---@field avoid_text boolean Whether to avoid moving over text. Defaults to true.
+---@field moving_function fun(self: Pet, x: number, y: number): number, number A function that takes a pet and its coordinates and outputs new coordinates. By default it moves in the same direction as previously and with some probability changes its direction. Additionally, with some probability a pet might stop moving.
 ---
 ---@field debug_marks boolean If true, marks are drawn at the start and end of each step. Defaults to false.
 
