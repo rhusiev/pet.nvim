@@ -50,7 +50,7 @@ M.to_relative = function(x, y, attached_to_wininfo)
 	return M.to_relative_x(x, attached_to_wininfo), M.to_relative_y(y, attached_to_wininfo)
 end
 
----Draw a character at x,y position
+---Draw a character at x,y position for a certain amount of time
 ---@param x number
 ---@param y number
 ---@param char string

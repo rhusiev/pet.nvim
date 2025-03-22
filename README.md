@@ -79,6 +79,29 @@ require("pet").stop_pet_party() -- Stop the party
 require("pet").add_pet() -- Add a single pet
 ```
 
+Some useful helper functions to build customization around the plugin:
+
+```lua
+local pet_utils = require("pet.utils")
+
+-- Convert x relative to a window to absolute (relative to the whole editor)
+pet_utils.to_absolute_x(x, attached_to_wininfo)
+-- Convert x absolute (relative to the whole editor) to relative to a window
+pet_utils.to_relative_x(x, attached_to_wininfo)
+-- Convert y relative to a window to absolute (relative to the whole editor)
+pet_utils.to_absolute_y(y, attached_to_wininfo)
+-- Convert y absolute (relative to the whole editor) to relative to a window
+pet_utils.to_relative_y(y, attached_to_wininfo)
+-- Convert x and y relative to a window to absolute (relative to the whole editor)
+pet_utils.to_absolute(x, y, attached_to_wininfo)
+-- Convert x and y absolute (relative to the whole editor) to relative to a window
+pet_utils.to_relative(x, y, attached_to_wininfo)
+-- Draw a character at x,y position for a certain amount of time
+pet_utils.draw_mark(x, y, char, time, attached_to_wininfo)
+```
+
+For documentation, see [utils.lua](lua/pet/utils.lua)
+
 ## Options
 
 You can add configuration when starting a party or adding a pet. Here are the default values of the config:
@@ -145,8 +168,6 @@ You can find more about the `pet` table at the [API](#API) section.
 The default implementation of the function can be found at `lua/pet/defaults.lua`, as well as other default values.
 
 There are also some helper functions, notably to translate between relative (to the window) and absoulte (relative to the whole editor) coordinates. You can find them at `lua/pet/utils.lua` or at the [API](#API) section.
-
-## API
 
 ## Inspiration
 
