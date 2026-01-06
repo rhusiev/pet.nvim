@@ -15,6 +15,7 @@
 ---
 ---@field avoid_text boolean Whether to avoid moving over text. Defaults to true.
 ---@field moving_function fun(pet: Pet, x: number, y: number): number, number A function that takes a pet and its coordinates and outputs new coordinates. By default it moves in the same direction as previously and with some probability changes its direction. Additionally, with some probability a pet might stop moving.
+---@field moving_opts table
 ---
 ---@field debug_marks boolean If true, marks are drawn at the start and end of each step. Defaults to false.
 

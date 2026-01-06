@@ -117,45 +117,20 @@ end
 ---@param attached_to_party boolean Whether the pet should be attached to a party. If it's not, it will not disappear with the end of the party.
 M.add_pet = function(conf, attached_to_party)
     n_pets = n_pets + 1
-    if conf == nil then
-        conf = {}
-    end
-    if conf.step_period == nil then
-        conf.step_period = defaults.step_period
-    end
-    if conf.wait_period == nil then
-        conf.wait_period = defaults.wait_period
-    end
-    if conf.pet_string == nil then
-        conf.pet_string = defaults.pet_string
-    end
-    if conf.pet_length == nil then
-        conf.pet_length = defaults.pet_length(conf.pet_string)
-    end
-    if conf.repeats == nil then
-        conf.repeats = defaults.repeats
-    end
-    if conf.min_skip_above == nil then
-        conf.min_skip_above = defaults.min_skip_above
-    end
-    if conf.min_skip_below == nil then
-        conf.min_skip_below = defaults.min_skip_below
-    end
-    if conf.min_skip_right == nil then
-        conf.min_skip_right = defaults.min_skip_right
-    end
-    if conf.min_skip_left == nil then
-        conf.min_skip_left = defaults.min_skip_left
-    end
-    if conf.debug_marks == nil then
-        conf.debug_marks = defaults.debug_marks
-    end
-    if conf.avoid_text == nil then
-        conf.avoid_text = defaults.avoid_text
-    end
-    if conf.moving_function == nil then
-        conf.moving_function = defaults.moving_function
-    end
+    conf = conf or {}
+    conf.step_period = conf.step_period or defaults.step_period
+    conf.wait_period = conf.wait_period or defaults.wait_period
+    conf.pet_string = conf.pet_string or defaults.pet_string
+    conf.pet_length = conf.pet_length or defaults.pet_length(conf.pet_string)
+    conf.repeats = conf.repeats or defaults.repeats
+    conf.min_skip_above = conf.min_skip_above or defaults.min_skip_above
+    conf.min_skip_below = conf.min_skip_below or defaults.min_skip_below
+    conf.min_skip_right = conf.min_skip_right or defaults.min_skip_right
+    conf.min_skip_left = conf.min_skip_left or defaults.min_skip_left
+    conf.debug_marks = conf.debug_marks or defaults.debug_marks
+    conf.avoid_text = conf.avoid_text or defaults.avoid_text
+    conf.moving_function = conf.moving_function or defaults.moving_function
+    conf.moving_opts = conf.moving_opts or defaults.moving_opts
 
     local attached_to_win = vim.api.nvim_get_current_win()
 
