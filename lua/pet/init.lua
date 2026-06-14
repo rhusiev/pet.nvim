@@ -1,5 +1,5 @@
 local M = {}
-local n_pets = 0
+local active_pets = {}
 local do_party = false
 
 require("pet.types")
@@ -30,7 +30,7 @@ end
 ---@param self Pet
 ---@param lengths {[number]: number}?
 ---@return vim.api.keyset.win_config, boolean
-local function choose_next_spot(self, lengths)
+local function choose_next_spot(self, lengths, all_pets)
     local config = vim.api.nvim_win_get_config(self.win)
     local attached_to_wininfo = vim.fn.getwininfo(self.attached_to_win)[1]
     local x, y = config["col"], config["row"]
@@ -81,7 +81,7 @@ local function choose_next_spot(self, lengths)
 
     local tries = 0
     while true do
-        x, y = self.move(self, x, y)
+        x, y = self.move(self, x, y, all_pets)
         if y < win_rowstart then
             y = win_rowend
         elseif y >= win_rowend then
@@ -108,7 +108,6 @@ local function choose_next_spot(self, lengths)
 
     config["col"] = x
     config["row"] = y
-
     return config, true
 end
 
@@ -116,7 +115,6 @@ end
 ---@param conf PetConfig?
 ---@param attached_to_party boolean Whether the pet should be attached to a party. If it's not, it will not disappear with the end of the party.
 M.add_pet = function(conf, attached_to_party)
-    n_pets = n_pets + 1
     conf = conf or {}
     conf.step_period = conf.step_period or defaults.step_period
     conf.wait_period = conf.wait_period or defaults.wait_period
@@ -133,7 +131,6 @@ M.add_pet = function(conf, attached_to_party)
     conf.moving_opts = conf.moving_opts or defaults.moving_opts
 
     local attached_to_win = vim.api.nvim_get_current_win()
-
     local buf = vim.api.nvim_create_buf(false, true)
     local pet = {
         win = nil,
@@ -151,46 +148,45 @@ M.add_pet = function(conf, attached_to_party)
         width = 2,
         height = 1,
     })
-    local config, no_err = choose_next_spot(pet)
+    local config, no_err = choose_next_spot(pet, nil, active_pets)
     if not no_err then
         vim.api.nvim_buf_delete(buf, { force = true })
-        n_pets = n_pets - 1
         return
     end
     vim.api.nvim_win_set_config(pet.win, config)
     vim.api.nvim_buf_set_lines(buf, 0, 1, true, { conf.pet_string })
 
+    active_pets[pet.win] = pet
+
     local timer = vim.uv.new_timer()
     local i = 1
+
+    local function remove_pet()
+        active_pets[pet.win] = nil
+        vim.api.nvim_buf_delete(buf, { force = true })
+    end
 
     timer:start(
         conf.wait_period,
         conf.step_period,
         vim.schedule_wrap(function()
             if not vim.api.nvim_win_is_valid(pet.win) or not vim.api.nvim_win_is_valid(attached_to_win) then
-                if timer:is_closing() then
-                    return
-                end
+                if timer:is_closing() then return end
                 timer:close()
-                vim.api.nvim_buf_delete(buf, { force = true })
-                n_pets = n_pets - 1
+                remove_pet()
                 return
             end
-            config, no_err = choose_next_spot(pet)
+            config, no_err = choose_next_spot(pet, nil, active_pets)
             if not no_err then
-                if timer:is_closing() then
-                    return
-                end
+                if timer:is_closing() then return end
                 timer:close()
-                vim.api.nvim_buf_delete(buf, { force = true })
-                n_pets = n_pets - 1
+                remove_pet()
                 return
             end
             vim.api.nvim_win_set_config(pet.win, config)
             if i == conf.repeats or attached_to_party and not do_party then
                 timer:close()
-                vim.api.nvim_buf_delete(buf, { force = true })
-                n_pets = n_pets - 1
+                remove_pet()
             end
             i = i + 1
         end)
@@ -202,26 +198,20 @@ end
 -- of `max_pets`.
 ---@param conf PartyConfig?
 M.start_pet_party = function(conf)
-    if not conf then
-        conf = {}
-    end
-    if not conf.max_pets then
-        conf.max_pets = defaults.max_pets
-    end
-    if not conf.spawn_period then
-        conf.spawn_period = defaults.spawn_period
-    end
-    local spawner = vim.uv.new_timer()
+    if not conf then conf = {} end
+    if not conf.max_pets then conf.max_pets = defaults.max_pets end
+    if not conf.spawn_period then conf.spawn_period = defaults.spawn_period end
     if do_party then
         vim.notify("Penguin party is already happening! Can't start another one.", vim.log.levels.WARN)
         return
     end
+    local spawner = vim.uv.new_timer()
     do_party = true
     spawner:start(
         500,
         conf.spawn_period,
         vim.schedule_wrap(function()
-            if n_pets < conf.max_pets then
+            if vim.tbl_count(active_pets) < conf.max_pets then   -- tbl_count because keys are win IDs
                 M.add_pet(conf, true)
             end
             if not do_party then
@@ -235,5 +225,7 @@ end
 M.stop_pet_party = function()
     do_party = false
 end
+
+M.pets = active_pets
 
 return M
