@@ -23,8 +23,8 @@ M.debug_marks = false
 M.avoid_text = true
 
 M.moving_opts = {
-	stop_moving_probability = 3,
-	start_moving_probability = 20,
+	stop_moving_probability = 5,
+	start_moving_probability = 13,
 }
 
 ---Choose the next spot for a pet
@@ -41,6 +41,11 @@ M.moving_function = function(pet, x, y)
 	end
 	if math.random(100) <= 30 then
 		pet.state.direction = pet.state.direction + (math.random(2) - 1) * 2 - 1
+        if pet.state.direction < 1 then
+			pet.state.direction = 4
+		elseif pet.state.direction > 4 then
+			pet.state.direction = 1
+		end
 	end
 	if (not pet.state.moving) and math.random(100) <= pet.config.moving_opts.start_moving_probability then
 		pet.state.moving = true

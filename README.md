@@ -135,6 +135,13 @@ require("pet").start_pet_party({
     min_skip_above = 0,
     min_skip_below = 0,
 
+    moving_opts = {
+        -- With what probaility the pet will stop at each step
+        stop_moving_probability = 5,
+        -- With what probaility the pet will start moving again after the stop
+        start_moving_probability = 13,
+    },
+
     -- Whether to avoid moving over text
     avoid_text = true,
     -- A function that takes a pet and its coordinates and outputs new coordinates. By default it moves in the same direction as previously and with some probability changes its direction. Additionally, with some probability a pet might stop moving.
