@@ -28,5 +28,7 @@
 ---@field win integer
 ---@field config PetConfig
 ---@field state any
+---@field global_x number? Cached editor-relative column position
+---@field global_y number? Cached editor-relative row position
 ---
 ---@field move fun(pet: Pet, x: number, y: number, all_pets: {[integer]: Pet}): number, number

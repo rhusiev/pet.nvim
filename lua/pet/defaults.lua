@@ -27,12 +27,6 @@ M.moving_opts = {
 	start_moving_probability = 13,
 }
 
----Choose the next spot for a pet
----@param pet Pet
----@param x number
----@param y number
----@param all_pets {[integer]: Pet}
----@return number, number
 M.moving_function = function(pet, x, y, all_pets)
 	if pet.state == nil then
 		pet.state = {
@@ -81,17 +75,12 @@ end
 local function all_neighbors(pet, all_pets)
 	local neighbors = {}
 	for _, other_pet in pairs(all_pets) do
-		if other_pet ~= pet then
-			if vim.api.nvim_win_is_valid(other_pet.win) then
-				local cfg = vim.api.nvim_win_get_config(other_pet.win)
-				if cfg and type(cfg.col) == "number" and type(cfg.row) == "number" then
-					table.insert(neighbors, {
-						x = cfg.col,
-						y = cfg.row,
-						velocity = other_pet.state and other_pet.state.velocity,
-					})
-				end
-			end
+		if other_pet ~= pet and other_pet.global_x and other_pet.global_y then
+			table.insert(neighbors, {
+				x = other_pet.global_x,
+				y = other_pet.global_y,
+				velocity = other_pet.state and other_pet.state.velocity,
+			})
 		end
 	end
 	return neighbors
@@ -110,11 +99,11 @@ M.flocking_function = function(pet, x, y, all_pets)
 
 	local opts = pet.config.moving_opts or {}
 	local separation_radius = opts.separation_radius or 5
-	local alignment_radius = opts.alignment_radius or 7
+	local alignment_radius = opts.alignment_radius or 6
 	local separation_weight = opts.separation_weight or 7.5
-	local cohesion_weight = opts.cohesion_weight or 0.05
+	local cohesion_weight = opts.cohesion_weight or 0.02
 	local alignment_weight = opts.alignment_weight or 1.2
-	local noise = opts.noise or 0.2
+	local noise = opts.noise or 0.1
 	local max_speed = opts.max_speed or 2.0
 	local drag = opts.drag or 0.75
 
