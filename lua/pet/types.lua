@@ -23,3 +23,10 @@
 ---@field max_pets integer The maximum number of pets simultaneously in the party. Defaults to 4.
 ---
 ---@field spawn_period integer The period in milliseconds at which a pet is spawned (if there still is some room in the party). Defaults to 2000.
+
+---@class Pet
+---@field win integer
+---@field config PetConfig
+---@field state any
+---
+---@field move fun(pet: Pet, x: number, y: number, all_pets: {[integer]: Pet}): number, number

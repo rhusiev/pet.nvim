@@ -78,14 +78,10 @@ local function shortest_toroidal_vector(val_1, val_2, max_val)
 	return d
 end
 
-local function same_window_neighbors(pet, all_pets)
+local function all_neighbors(pet, all_pets)
 	local neighbors = {}
 	for _, other_pet in pairs(all_pets) do
-		if other_pet ~= pet and other_pet.attached_to_win == pet.attached_to_win then
-			-- TODO:
-			-- fetch and cache positions in main loop once per tick?
-			-- rather than calling nvim_win_get_config inside this loop. But each pet
-            -- is run on different tick, no? Idk how do do this yet
+		if other_pet ~= pet then
 			if vim.api.nvim_win_is_valid(other_pet.win) then
 				local cfg = vim.api.nvim_win_get_config(other_pet.win)
 				if cfg and type(cfg.col) == "number" and type(cfg.row) == "number" then
@@ -113,26 +109,21 @@ M.flocking_function = function(pet, x, y, all_pets)
 	end
 
 	local opts = pet.config.moving_opts or {}
-	local separation_radius = opts.separation_radius or 7
-	local alignment_radius = opts.alignment_radius or 25
+	local separation_radius = opts.separation_radius or 5
+	local alignment_radius = opts.alignment_radius or 7
 	local separation_weight = opts.separation_weight or 7.5
-	local cohesion_weight = opts.cohesion_weight or 0.8
-	local alignment_weight = opts.alignment_weight or 0.5
-	local noise = opts.noise or 0.4
+	local cohesion_weight = opts.cohesion_weight or 0.05
+	local alignment_weight = opts.alignment_weight or 1.2
+	local noise = opts.noise or 0.2
 	local max_speed = opts.max_speed or 2.0
 	local drag = opts.drag or 0.75
 
 	local y_ratio = 2.0
 
-	local win = pet.attached_to_win
-	local win_width = 100
-	local win_height = 40
-	if win and vim.api.nvim_win_is_valid(win) then
-		win_width = vim.api.nvim_win_get_width(win)
-		win_height = vim.api.nvim_win_get_height(win)
-	end
+	local win_width = vim.o.columns
+	local win_height = vim.o.lines
 
-	local neighbors = same_window_neighbors(pet, all_pets)
+	local neighbors = all_neighbors(pet, all_pets)
 	local sep_x, sep_y = 0, 0
 	local coh_x, coh_y = 0, 0
 	local ali_x, ali_y = 0, 0

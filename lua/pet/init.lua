@@ -6,104 +6,159 @@ require("pet.types")
 local utils = require("pet.utils")
 local defaults = require("pet.defaults")
 
----@class Pet
----@field win integer
----@field attached_to_win integer
----@field config PetConfig
----@field state any
----
----@field move fun(pet: Pet, x: number, y: number): number, number
+local function get_available_areas(all_pets, config)
+    local areas = {}
+    local pet_boxes = {}
+    for _, pet in pairs(all_pets) do
+        if vim.api.nvim_win_is_valid(pet.win) then
+            local conf = vim.api.nvim_win_get_config(pet.win)
+            if conf.row and type(conf.row) == "number" then
+                table.insert(pet_boxes, {
+                    col = conf.col + 1,
+                    row = conf.row + 1,
+                    len = pet.config.pet_length,
+                })
+            end
+        end
+    end
+
+    for _, win_id in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+        local win_conf = vim.api.nvim_win_get_config(win_id)
+        if win_conf.relative == "" then
+            local wininfos = vim.fn.getwininfo(win_id)
+            if wininfos and #wininfos > 0 then
+                local wininfo = wininfos[1]
+                local win_rowstart = wininfo.winrow + config.min_skip_above
+                local win_rowend = wininfo.winrow + wininfo.height - 1 - config.min_skip_below
+                local win_colstart = wininfo.wincol + wininfo.textoff + config.min_skip_left
+                local win_colend = wininfo.wincol + wininfo.width - 1 - config.min_skip_right
+
+                for row = win_rowstart, win_rowend do
+                    local length = wininfo.wincol + wininfo.textoff - 1
+                    if config.avoid_text then
+                        for c = win_colend, wininfo.wincol + wininfo.textoff, -1 do
+                            local is_pet = false
+                            for _, box in ipairs(pet_boxes) do
+                                if row == box.row and c >= box.col and c < box.col + box.len then
+                                    is_pet = true
+                                    break
+                                end
+                            end
+                            if not is_pet and vim.fn.screenchar(row, c) ~= 32 then
+                                length = c
+                                if config.debug_marks then
+                                    utils.draw_mark(c, row, "#", config.step_period / 1.05)
+                                end
+                                break
+                            elseif config.debug_marks and c <= wininfo.wincol + wininfo.textoff then
+                                utils.draw_mark(c, row, "@", config.step_period / 1.1)
+                            end
+                        end
+                    end
+                    
+                    local min_c = math.max(length + 1, win_colstart)
+                    local max_c = win_colend - config.pet_length + 1
+                    
+                    if min_c <= max_c then
+                        if not areas[row] then areas[row] = {} end
+                        table.insert(areas[row], {
+                            min_x = min_c - 1, -- 0-indexed editor col
+                            max_x = max_c - 1,
+                        })
+                    end
+                end
+            end
+        end
+    end
+    return areas
+end
+
+local function is_available(x, y, areas)
+    local intervals = areas[y + 1]
+    if not intervals then return false end
+    for _, interval in ipairs(intervals) do
+        if x >= interval.min_x and x <= interval.max_x then
+            return true
+        end
+    end
+    return false
+end
 
 ---Choose a new random spot for a pet
 ---@param self Pet
----@return number, number
-local function choose_new_spot(self)
-    local attached_to_wininfo = vim.fn.getwininfo(self.attached_to_win)[1]
-    local x, y =
-        math.random(attached_to_wininfo.wincol + attached_to_wininfo.width - self.config.pet_length),
-        math.random(attached_to_wininfo.height - 1 - self.config.min_skip_below)
-
-    return x, y
+---@param areas table?
+---@return number?, number?
+local function choose_new_spot(self, areas)
+    if not areas then
+        areas = get_available_areas(active_pets, self.config)
+    end
+    local valid_spots = {}
+    for row, intervals in pairs(areas) do
+        for _, interval in ipairs(intervals) do
+            for col = interval.min_x, interval.max_x do
+                table.insert(valid_spots, {x = col, y = row - 1})
+            end
+        end
+    end
+    if #valid_spots == 0 then
+        return nil, nil
+    end
+    local spot = valid_spots[math.random(#valid_spots)]
+    return spot.x, spot.y
 end
 
 ---Choose, where to move for a pet
 ---@param self Pet
----@param lengths {[number]: number}?
+---@param areas table?
+---@param all_pets table
 ---@return vim.api.keyset.win_config, boolean
-local function choose_next_spot(self, lengths, all_pets)
+local function choose_next_spot(self, areas, all_pets)
     local config = vim.api.nvim_win_get_config(self.win)
-    local attached_to_wininfo = vim.fn.getwininfo(self.attached_to_win)[1]
     local x, y = config["col"], config["row"]
     if x == nil or y == nil then
         return config, false
     end
-    local abs_x, abs_y = utils.to_absolute(x, y, attached_to_wininfo)
 
-    if lengths ~= nil then
-        goto end_lengths
+    if areas == nil then
+        areas = get_available_areas(all_pets, self.config)
     end
-    lengths = {}
+
     if self.config.debug_marks then
-        utils.draw_mark(x, y, "$", self.config.step_period / 2, attached_to_wininfo)
+        utils.draw_mark(x + 1, y + 1, "$", self.config.step_period / 2)
     end
-    for row = attached_to_wininfo.winrow, attached_to_wininfo.winrow + attached_to_wininfo.height - 1 do
-        local length = attached_to_wininfo.textoff
-        if self.config.avoid_text then
-            for c = attached_to_wininfo.wincol + attached_to_wininfo.width - self.config.pet_length, attached_to_wininfo.wincol + attached_to_wininfo.textoff, -1 do
-                if
-                    vim.fn.screenchar(row, c) ~= 32
-                    and not (c < abs_x + self.config.pet_length and c >= abs_x and row == abs_y)
-                then
-                    length = c
-                    if self.config.debug_marks then
-                        utils.draw_mark(c, row, "#", self.config.step_period / 1.05)
-                    end
-                    break
-                elseif self.config.debug_marks and c <= attached_to_wininfo.textoff then
-                    utils.draw_mark(c, row, "@", self.config.step_period / 1.1)
-                elseif c <= 5 then
-                    vim.print(attached_to_wininfo.textoff)
-                end
-            end
-        end
-        local rel_c, rel_row = utils.to_relative(length, row, attached_to_wininfo)
-        lengths[rel_row] = rel_c
-    end
-    ::end_lengths::
 
-    local win_rowend = attached_to_wininfo.height - 1 - self.config.min_skip_below
-    local win_rowstart = self.config.min_skip_above
-    local win_colend = attached_to_wininfo.width - self.config.pet_length - self.config.min_skip_right
-    local win_colstart = self.config.min_skip_left
-    if attached_to_wininfo.textoff > win_colstart then
-        win_colstart = attached_to_wininfo.textoff
-    end
+    local editor_width = vim.o.columns
+    local editor_height = vim.o.lines
 
     local tries = 0
     while true do
         x, y = self.move(self, x, y, all_pets)
-        if y < win_rowstart then
-            y = win_rowend
-        elseif y >= win_rowend then
-            y = win_rowstart
+        
+        -- Wrap around editor bounds
+        if y < 0 then
+            y = editor_height - 1
+        elseif y >= editor_height then
+            y = 0
         end
-        if x < win_colstart then
-            x = win_colend
-        elseif x >= win_colend then
-            x = win_colstart
+        if x < 0 then
+            x = editor_width - 1
+        elseif x >= editor_width then
+            x = 0
         end
-        if lengths[y] ~= nil and lengths[y] < x then
+
+        if is_available(x, y, areas) then
             break
         end
+
         tries = tries + 1
-        if tries > 30 then
-            x, y = choose_new_spot(self)
+        -- Limit to avoid infinite loops and give the pet a huge margin to fly over blocked space in one tick
+        if tries > 1000 then
             return config, false
         end
-        if self.config.debug_marks then
-            utils.draw_mark(lengths[y], y, "#", self.config.step_period / 1.05, attached_to_wininfo)
-            utils.draw_mark(x, y, "$", self.config.step_period / 1.5, attached_to_wininfo)
-        end
+    end
+
+    if self.config.debug_marks then
+        utils.draw_mark(x + 1, y + 1, "$", self.config.step_period / 1.5)
     end
 
     config["col"] = x
@@ -130,30 +185,31 @@ M.add_pet = function(conf, attached_to_party)
     conf.moving_function = conf.moving_function or defaults.moving_function
     conf.moving_opts = conf.moving_opts or defaults.moving_opts
 
-    local attached_to_win = vim.api.nvim_get_current_win()
     local buf = vim.api.nvim_create_buf(false, true)
     local pet = {
         win = nil,
-        attached_to_win = attached_to_win,
         config = conf,
         state = nil,
         move = conf.moving_function,
     }
-    local x, y = choose_new_spot(pet)
+    
+    local areas = get_available_areas(active_pets, conf)
+    local x, y = choose_new_spot(pet, areas)
+    if not x then
+        vim.api.nvim_buf_delete(buf, { force = true })
+        return
+    end
+
     pet.win = vim.api.nvim_open_win(buf, false, {
-        relative = "win",
+        relative = "editor",
         style = "minimal",
         row = y,
         col = x,
         width = 2,
         height = 1,
     })
-    local config, no_err = choose_next_spot(pet, nil, active_pets)
-    if not no_err then
-        vim.api.nvim_buf_delete(buf, { force = true })
-        return
-    end
-    vim.api.nvim_win_set_config(pet.win, config)
+    
+    local config = vim.api.nvim_win_get_config(pet.win)
     vim.api.nvim_buf_set_lines(buf, 0, 1, true, { conf.pet_string })
 
     active_pets[pet.win] = pet
@@ -163,19 +219,22 @@ M.add_pet = function(conf, attached_to_party)
 
     local function remove_pet()
         active_pets[pet.win] = nil
-        vim.api.nvim_buf_delete(buf, { force = true })
+        if vim.api.nvim_buf_is_valid(buf) then
+            vim.api.nvim_buf_delete(buf, { force = true })
+        end
     end
 
     timer:start(
         conf.wait_period,
         conf.step_period,
         vim.schedule_wrap(function()
-            if not vim.api.nvim_win_is_valid(pet.win) or not vim.api.nvim_win_is_valid(attached_to_win) then
+            if not vim.api.nvim_win_is_valid(pet.win) then
                 if timer:is_closing() then return end
                 timer:close()
                 remove_pet()
                 return
             end
+            local no_err
             config, no_err = choose_next_spot(pet, nil, active_pets)
             if not no_err then
                 if timer:is_closing() then return end
@@ -211,7 +270,7 @@ M.start_pet_party = function(conf)
         500,
         conf.spawn_period,
         vim.schedule_wrap(function()
-            if vim.tbl_count(active_pets) < conf.max_pets then   -- tbl_count because keys are win IDs
+            if vim.tbl_count(active_pets) < conf.max_pets then
                 M.add_pet(conf, true)
             end
             if not do_party then
